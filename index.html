@@ -69,19 +69,17 @@ window.fbSync = {
   }
 };
 console.log('[FB] Ready, device:', window._fbDeviceId);
-// Poll every 2s to check if campaign was selected
-setInterval(function() {
-  if (window.fbActiveCampaignId && !window._fbListenerActive) {
-    window._fbListenerActive = true;
-    console.log('[FB] Auto-joining room:', window.fbActiveCampaignId);
-    window.fbSync.joinRoom(window.fbActiveCampaignId, function(d) {
-      console.log('[FB] Remote update received');
-      window._fbRemoteData = d;
-      // Trigger React state update via custom event
-      window.dispatchEvent(new CustomEvent('fb-sync', { detail: d }));
-    });
-  }
-}, 1000);
+// Immediate join when fbActiveCampaignId is set
+window.fbJoinAndListen = function(campId) {
+  if (window._fbListenerActive && window.fbActiveCampaignId === campId) return;
+  window._fbListenerActive = true;
+  window.fbActiveCampaignId = campId;
+  console.log('[FB] Joining room:', campId);
+  window.fbSync.joinRoom(campId, function(d) {
+    console.log('[FB] Remote update received → dispatching fb-sync');
+    window.dispatchEvent(new CustomEvent('fb-sync', { detail: d }));
+  });
+};
 </script>
 
 <script>
@@ -734,7 +732,7 @@ function App() {
       function handleFbSync(e) {
         var d = e.detail;
         if (!d) return;
-        console.log('[FB] Applying to React state');
+        console.log('[FB] Applying to React state:', Object.keys(d).join(','));
         if (d.campaigns) setCampaigns(d.campaigns);
         if (d.allChars) setAllChars(d.allChars);
         if (d.players) setPlayers(d.players);
@@ -742,6 +740,13 @@ function App() {
       window.addEventListener('fb-sync', handleFbSync);
       return function() { window.removeEventListener('fb-sync', handleFbSync); };
     }, []);
+    // Re-join Firebase room when campaign changes
+    useEffect(function() {
+      if (activeCampaign && window.fbJoinAndListen) {
+        var campId = String(activeCampaign.id || activeCampaign.name || 'default');
+        window.fbJoinAndListen(campId);
+      }
+    }, [activeCampaign]);
     // Firebase real-time sync - apply remote updates to React state
     useEffect(function() {
       function handleFbSync(e) {
@@ -774,7 +779,7 @@ function App() {
                 })),
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
                     (activeCamps.length ? activeCamps : campaigns).map(function (camp) {
-                        return (React.createElement("div", { key: camp.id, onClick: function () { setActiveCampaign(camp); setScreen("login"); if(window.fbSync){ window.fbActiveCampaignId=String(camp.id||camp.name||"default"); window.fbSync.joinRoom(window.fbActiveCampaignId, function(d){ if(d.campaigns) window._fbPendingUpdate=d; }); } }, style: { position: "relative", borderRadius: 12, overflow: "hidden", border: "1px solid #4d4635", boxShadow: "0 4px 20px rgba(0,0,0,.5)", cursor: "pointer", transition: "all .2s" }, onMouseEnter: function (e) { e.currentTarget.style.boxShadow = "0 4px 30px rgba(242,202,80,.15)"; e.currentTarget.style.borderColor = "#735c00"; }, onMouseLeave: function (e) { e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,.5)"; e.currentTarget.style.borderColor = "#4d4635"; } },
+                        return (React.createElement("div", { key: camp.id, onClick: function () { setActiveCampaign(camp); setScreen("login"); if(window.fbJoinAndListen){ window.fbJoinAndListen(String(camp.id||camp.name||"default")); } }, style: { position: "relative", borderRadius: 12, overflow: "hidden", border: "1px solid #4d4635", boxShadow: "0 4px 20px rgba(0,0,0,.5)", cursor: "pointer", transition: "all .2s" }, onMouseEnter: function (e) { e.currentTarget.style.boxShadow = "0 4px 30px rgba(242,202,80,.15)"; e.currentTarget.style.borderColor = "#735c00"; }, onMouseLeave: function (e) { e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,.5)"; e.currentTarget.style.borderColor = "#4d4635"; } },
                             React.createElement("div", { style: { height: 160, background: "linear-gradient(135deg,#1c1510,#2a1f12,#1a0f0f)", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" } },
                                 camp.image
                                     ? React.createElement("img", { src: camp.image, style: { width: "100%", height: "100%", objectFit: "cover", maskImage: "linear-gradient(to bottom,black 60%,transparent 100%)" }, alt: "" })
