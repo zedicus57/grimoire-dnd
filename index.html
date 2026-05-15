@@ -82,29 +82,32 @@ window.fbSync = {
   }
 };
 console.log('[FB] Ready, device:', window._fbDeviceId);
-// Simple reliable sync: onSnapshot fires instantly on remote changes
+// Polling every 3 seconds - simple and reliable
 window.fbJoinAndListen = function(campId) {
-  if (window._fbListenerActive && window.fbActiveCampaignId === campId) return;
-  if (window._fbUnsub) { window._fbUnsub(); }
-  window._fbListenerActive = true;
+  if (window._fbPollInterval) clearInterval(window._fbPollInterval);
   window.fbActiveCampaignId = campId;
+  window._fbListenerActive = true;
   console.log('[FB] Joining room:', campId);
-  window._fbUnsub = _db.collection('campaigns').doc(campId)
-    .collection('sync').doc('state')
-    .onSnapshot(function(snap) {
-      if (!snap.exists) return;
-      var d = snap.data();
-      if (!d) return;
-      if (d._dev === window._fbDeviceId) {
-        console.log('[FB] Own update, skipping');
-        return;
-      }
-      console.log('[FB] Remote update from', d._dev, '→ dispatching');
-      window.dispatchEvent(new CustomEvent('fb-sync', { detail: d }));
-    }, function(err) {
-      console.warn('[FB] Listener error:', err);
-      window._fbListenerActive = false;
-    });
+  
+  window._fbPollInterval = setInterval(function() {
+    if (!window.fbActiveCampaignId) return;
+    _db.collection('campaigns').doc(window.fbActiveCampaignId)
+      .collection('sync').doc('state')
+      .get()
+      .then(function(snap) {
+        if (!snap.exists) return;
+        var d = snap.data();
+        if (!d) return;
+        // Skip our own writes
+        if (d._dev === window._fbDeviceId) return;
+        // Skip if not newer than last remote update
+        if (d._at <= (window._fbLastRemote || 0)) return;
+        window._fbLastRemote = d._at;
+        console.log('[FB] Remote update from', d._dev);
+        window.dispatchEvent(new CustomEvent('fb-sync', { detail: d }));
+      })
+      .catch(function(e) { console.warn('[FB] Poll error:', e.message); });
+  }, 3000);
 };
 </script>
 
