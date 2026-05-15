@@ -760,14 +760,16 @@ function App() {
       function handleFbSync(e) {
         var d = e.detail;
         if (!d) return;
+        // Only apply remote update if user is logged in
+        // This prevents blocking the login/character select screen
+        if (!window._fbCurrentPlayerId) {
+          console.log('[FB] Not logged in yet, queuing update');
+          window._fbQueuedUpdate = d;
+          return;
+        }
         console.log('[FB] Applying remote allChars to React');
-        // Only sync characters data (HP, spells, inventory)
-        // Do NOT sync players (breaks currentPlayer session)
-        // Do NOT sync campaigns (each device manages locally)
         if (d.allChars && Array.isArray(d.allChars)) {
           setAllChars(d.allChars.map(function(c) { return Object.assign({}, c); }));
-          // Also update hpInput to reflect new HP
-          setHpInput(String(d.allChars[0] ? d.allChars[0].hp : 0));
         }
       }
       window.addEventListener('fb-sync', handleFbSync);
@@ -864,7 +866,7 @@ function App() {
                 setErr(false);
                 if (next.length === 4 && sel) {
                     if (next === (sel.pin || "0000")) {
-                        setCurrentPlayer(sel);
+                        setCurrentPlayer(sel); window._fbCurrentPlayerId = sel.id; if(window._fbQueuedUpdate){ setTimeout(function(){ window.dispatchEvent(new CustomEvent("fb-sync",{detail:window._fbQueuedUpdate})); window._fbQueuedUpdate=null; }, 100); }
                         if (sel.role === "dm") {
                             setScreen("campaign");
                         }
@@ -886,7 +888,7 @@ function App() {
                 }
             };
             return (React.createElement("div", { style: { minHeight: "100dvh", background: "radial-gradient(circle at 50% 30%,#1c1510,#0e0a06 70%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "1.5rem", gap: "2rem" } },
-                React.createElement("button", { onClick: function () { setCurrentPlayer(null); setScreen("select"); }, style: { position: "fixed", top: 16, left: 16, background: "rgba(255,255,255,.04)", border: "1px solid #4d4635", borderRadius: 6, padding: ".25rem .6rem", color: "#99907c", fontFamily: "'JetBrains Mono',monospace", fontSize: ".48rem", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: ".3rem" } }, "\u2190 Campagnes"),
+                React.createElement("button", { onClick: function () { setCurrentPlayer(null); window._fbCurrentPlayerId = null; setScreen("select"); }, style: { position: "fixed", top: 16, left: 16, background: "rgba(255,255,255,.04)", border: "1px solid #4d4635", borderRadius: 6, padding: ".25rem .6rem", color: "#99907c", fontFamily: "'JetBrains Mono',monospace", fontSize: ".48rem", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: ".3rem" } }, "\u2190 Campagnes"),
                 React.createElement("div", { style: { textAlign: "center" } },
                     React.createElement("div", { style: { fontFamily: "'Libre Caslon Text',serif", fontSize: "2rem", fontWeight: 700, color: "#f2ca50" } }, "The Eternal Grimoire"),
                     activeCampaign && React.createElement("div", { style: { fontFamily: "'Manrope',sans-serif", fontSize: ".82rem", color: "#ffb68c", marginTop: ".25rem", fontStyle: "italic" } }, activeCampaign.name),
@@ -2220,7 +2222,7 @@ function App() {
                     React.createElement("div", { style: { padding: ".6rem 1rem", borderBottom: "1px solid rgba(77,70,53,.15)" } },
                         React.createElement("button", { onClick: () => { setShowSettings(false); setCurrentPlayer(null); setScreen("select"); }, style: { width: "100%", padding: ".42rem", background: "rgba(96,160,255,.08)", border: "1px solid rgba(96,160,255,.2)", borderRadius: 6, color: "#60a0ff", fontFamily: "'JetBrains Mono',monospace", fontSize: ".52rem", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem" } }, "\u2190 Changer de campagne")),
                     React.createElement("div", { style: { padding: ".35rem 1rem", borderBottom: "1px solid rgba(77,70,53,.15)" } },
-                        React.createElement("button", { onClick: () => { setShowSettings(false); setCurrentPlayer(null); setScreen("login"); }, style: { width: "100%", padding: ".42rem", background: "rgba(248,113,113,.06)", border: "1px solid rgba(248,113,113,.18)", borderRadius: 6, color: "#f87171", fontFamily: "'JetBrains Mono',monospace", fontSize: ".52rem", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem" } }, "\uD83D\uDEAA Se d\u00E9connecter")),
+                        React.createElement("button", { onClick: () => { setShowSettings(false); setCurrentPlayer(null); window._fbCurrentPlayerId = null; setScreen("login"); }, style: { width: "100%", padding: ".42rem", background: "rgba(248,113,113,.06)", border: "1px solid rgba(248,113,113,.18)", borderRadius: 6, color: "#f87171", fontFamily: "'JetBrains Mono',monospace", fontSize: ".52rem", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem" } }, "\uD83D\uDEAA Se d\u00E9connecter")),
                     React.createElement("div", { style: { padding: ".55rem 1rem", borderBottom: "1px solid rgba(77,70,53,.15)" } },
                         React.createElement("div", { style: { fontFamily: "'JetBrains Mono',monospace", fontSize: ".44rem", color: "#99907c", letterSpacing: ".1em", marginBottom: ".4rem" } }, "SAUVEGARDE"),
                         React.createElement("div", { style: { display: "flex", gap: ".4rem" } },
