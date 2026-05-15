@@ -77,6 +77,8 @@ setInterval(function() {
     window.fbSync.joinRoom(window.fbActiveCampaignId, function(d) {
       console.log('[FB] Remote update received');
       window._fbRemoteData = d;
+      // Trigger React state update via custom event
+      window.dispatchEvent(new CustomEvent('fb-sync', { detail: d }));
     });
   }
 }, 1000);
@@ -727,6 +729,32 @@ function App() {
     useEffect(() => {
         writeSave({ campaigns, allChars, players });
     }, [campaigns, allChars, players]);
+    // Firebase real-time sync listener
+    useEffect(function() {
+      function handleFbSync(e) {
+        var d = e.detail;
+        if (!d) return;
+        console.log('[FB] Applying to React state');
+        if (d.campaigns) setCampaigns(d.campaigns);
+        if (d.allChars) setAllChars(d.allChars);
+        if (d.players) setPlayers(d.players);
+      }
+      window.addEventListener('fb-sync', handleFbSync);
+      return function() { window.removeEventListener('fb-sync', handleFbSync); };
+    }, []);
+    // Firebase real-time sync - apply remote updates to React state
+    useEffect(function() {
+      function handleFbSync(e) {
+        var d = e.detail;
+        if (!d) return;
+        console.log('[FB] Applying to React:', Object.keys(d));
+        if (d.campaigns) setCampaigns(d.campaigns);
+        if (d.allChars) setAllChars(d.allChars);
+        if (d.players) setPlayers(d.players);
+      }
+      window.addEventListener('fb-sync', handleFbSync);
+      return function() { window.removeEventListener('fb-sync', handleFbSync); };
+    }, []);
     // ── CAMPAIGN SELECTION SCREEN (first screen all players see) ──
     if (screen === "select") {
         var activeCamps = campaigns.filter(function (c) { return c.status === "active" || c.status === "Active"; });
