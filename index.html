@@ -759,18 +759,9 @@ function App() {
     useEffect(function() {
       function handleFbSync(e) {
         var d = e.detail;
-        if (!d) return;
-        // Only apply remote update if user is logged in
-        // This prevents blocking the login/character select screen
-        if (!window._fbCurrentPlayerId) {
-          console.log('[FB] Not logged in yet, queuing update');
-          window._fbQueuedUpdate = d;
-          return;
-        }
-        console.log('[FB] Applying remote allChars to React');
-        if (d.allChars && Array.isArray(d.allChars)) {
-          setAllChars(d.allChars.map(function(c) { return Object.assign({}, c); }));
-        }
+        if (!d || !d.allChars) return;
+        console.log('[FB] Applying remote allChars');
+        setAllChars(d.allChars.map(function(c) { return Object.assign({}, c); }));
       }
       window.addEventListener('fb-sync', handleFbSync);
       return function() { window.removeEventListener('fb-sync', handleFbSync); };
