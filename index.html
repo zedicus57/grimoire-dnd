@@ -54,7 +54,7 @@ window.fbSync = {
        .collection('sync').doc('state')
        .set(Object.assign({}, data, {_at: window.fbLastWrite, _dev: window._fbDeviceId}))
        .then(function() { 
-         setTimeout(function(){ window.fbIsPushing = false; }, 500);
+         setTimeout(function(){ window.fbIsPushing = false; }, 200);
        })
        .catch(function(e){ console.warn('[FB]', e); window.fbIsPushing = false; });
   },
@@ -705,11 +705,21 @@ function App() {
         const n = Math.max(0, hp - dmg);
         setHpInput(String(n));
         upd({ hp: n });
+        // Push HP change immediately to Firebase
+        if (window.fbSync && window.fbActiveCampaignId) {
+          var updatedChars = allChars.map(function(c) { return c.id === char.id ? Object.assign({}, c, {hp: n}) : c; });
+          window.fbSync.push({ allChars: updatedChars, campaigns: campaigns, players: players });
+        }
     };
     const applyHeal = () => {
         const n = Math.min(char.hpMax, hp + dmg);
         setHpInput(String(n));
         upd({ hp: n });
+        // Push HP change immediately to Firebase
+        if (window.fbSync && window.fbActiveCampaignId) {
+          var updatedChars = allChars.map(function(c) { return c.id === char.id ? Object.assign({}, c, {hp: n}) : c; });
+          window.fbSync.push({ allChars: updatedChars, campaigns: campaigns, players: players });
+        }
     };
     const availableSpells = SPELLS_DB.filter(s => !char.spells.find(cs => cs.id === s.id));
     const filteredSpells = availableSpells.filter(s => {
