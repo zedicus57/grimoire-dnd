@@ -621,7 +621,7 @@ function App() {
     catch (e) {
         return null;
     } };
-    const writeSave = function(data) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch(e){} if(window.fbSync && window.fbActiveCampaignId) { window.fbSync.push(data); } };
+    const writeSave = function(data) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch(e){} if(window.fbSync && window.fbActiveCampaignId && data.allChars) { window.fbSync.push({ allChars: data.allChars }); } };
     const saved = loadSave();
     const INIT_PLAYERS = [
         { id: "dm", name: "Maître du Jeu", role: "dm", avatar: "👑", photo: "", pin: "1234" },
@@ -716,7 +716,7 @@ function App() {
         // Push HP change immediately to Firebase
         if (window.fbSync && window.fbActiveCampaignId) {
           var updatedChars = allChars.map(function(c) { return c.id === char.id ? Object.assign({}, c, {hp: n}) : c; });
-          window.fbSync.push({ allChars: updatedChars, campaigns: campaigns, players: players });
+          window.fbSync.push({ allChars: updatedChars });
         }
     };
     const applyHeal = () => {
@@ -726,7 +726,7 @@ function App() {
         // Push HP change immediately to Firebase
         if (window.fbSync && window.fbActiveCampaignId) {
           var updatedChars = allChars.map(function(c) { return c.id === char.id ? Object.assign({}, c, {hp: n}) : c; });
-          window.fbSync.push({ allChars: updatedChars, campaigns: campaigns, players: players });
+          window.fbSync.push({ allChars: updatedChars });
         }
     };
     const availableSpells = SPELLS_DB.filter(s => !char.spells.find(cs => cs.id === s.id));
@@ -760,16 +760,14 @@ function App() {
       function handleFbSync(e) {
         var d = e.detail;
         if (!d) return;
-        console.log('[FB] Applying remote state to React');
-        // Force new array references to trigger React re-render
+        console.log('[FB] Applying remote allChars to React');
+        // Only sync characters data (HP, spells, inventory)
+        // Do NOT sync players (breaks currentPlayer session)
+        // Do NOT sync campaigns (each device manages locally)
         if (d.allChars && Array.isArray(d.allChars)) {
           setAllChars(d.allChars.map(function(c) { return Object.assign({}, c); }));
-        }
-        if (d.campaigns && Array.isArray(d.campaigns)) {
-          setCampaigns(d.campaigns.map(function(c) { return Object.assign({}, c); }));
-        }
-        if (d.players && Array.isArray(d.players)) {
-          setPlayers(d.players.map(function(p) { return Object.assign({}, p); }));
+          // Also update hpInput to reflect new HP
+          setHpInput(String(d.allChars[0] ? d.allChars[0].hp : 0));
         }
       }
       window.addEventListener('fb-sync', handleFbSync);
