@@ -69,26 +69,34 @@ window.fbSync = {
         if (!d) return;
         if (d._dev === window._fbDeviceId) return;
         if (d._at <= window.fbLastWrite) return;
-        if (window.fbIsPushing) { 
-          console.log('[FB] Skipping update (we are pushing)');
-          return; 
-        }
-        console.log('[FB] Remote update from', d._dev);
         if (onUpdate) onUpdate(d);
       });
   }
 };
 console.log('[FB] Ready, device:', window._fbDeviceId);
-// Immediate join when fbActiveCampaignId is set
+// Simple reliable sync: onSnapshot fires instantly on remote changes
 window.fbJoinAndListen = function(campId) {
   if (window._fbListenerActive && window.fbActiveCampaignId === campId) return;
+  if (window._fbUnsub) { window._fbUnsub(); }
   window._fbListenerActive = true;
   window.fbActiveCampaignId = campId;
   console.log('[FB] Joining room:', campId);
-  window.fbSync.joinRoom(campId, function(d) {
-    console.log('[FB] Remote update received → dispatching fb-sync');
-    window.dispatchEvent(new CustomEvent('fb-sync', { detail: d }));
-  });
+  window._fbUnsub = _db.collection('campaigns').doc(campId)
+    .collection('sync').doc('state')
+    .onSnapshot(function(snap) {
+      if (!snap.exists) return;
+      var d = snap.data();
+      if (!d) return;
+      if (d._dev === window._fbDeviceId) {
+        console.log('[FB] Own update, skipping');
+        return;
+      }
+      console.log('[FB] Remote update from', d._dev, '→ dispatching');
+      window.dispatchEvent(new CustomEvent('fb-sync', { detail: d }));
+    }, function(err) {
+      console.warn('[FB] Listener error:', err);
+      window._fbListenerActive = false;
+    });
 };
 </script>
 
@@ -752,16 +760,17 @@ function App() {
       function handleFbSync(e) {
         var d = e.detail;
         if (!d) return;
-        console.log('[FB] Applying remote state');
-        // Apply all synced data
+        console.log('[FB] Applying remote state to React');
+        // Force new array references to trigger React re-render
         if (d.allChars && Array.isArray(d.allChars)) {
-          setAllChars(function(current) {
-            // Merge: keep local chars not in remote, update those that are
-            return d.allChars;
-          });
+          setAllChars(d.allChars.map(function(c) { return Object.assign({}, c); }));
         }
-        if (d.campaigns && Array.isArray(d.campaigns)) setCampaigns(d.campaigns);
-        if (d.players && Array.isArray(d.players)) setPlayers(d.players);
+        if (d.campaigns && Array.isArray(d.campaigns)) {
+          setCampaigns(d.campaigns.map(function(c) { return Object.assign({}, c); }));
+        }
+        if (d.players && Array.isArray(d.players)) {
+          setPlayers(d.players.map(function(p) { return Object.assign({}, p); }));
+        }
       }
       window.addEventListener('fb-sync', handleFbSync);
       return function() { window.removeEventListener('fb-sync', handleFbSync); };
