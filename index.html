@@ -49,10 +49,14 @@ window.fbSync = {
   push: function(data) {
     if (!window.fbActiveCampaignId) return;
     window.fbLastWrite = Date.now();
+    window.fbIsPushing = true;
     _db.collection('campaigns').doc(window.fbActiveCampaignId)
        .collection('sync').doc('state')
        .set(Object.assign({}, data, {_at: window.fbLastWrite, _dev: window._fbDeviceId}))
-       .catch(function(e){ console.warn('[FB]', e); });
+       .then(function() { 
+         setTimeout(function(){ window.fbIsPushing = false; }, 500);
+       })
+       .catch(function(e){ console.warn('[FB]', e); window.fbIsPushing = false; });
   },
   joinRoom: function(campId, onUpdate) {
     if (window._fbUnsub) window._fbUnsub();
@@ -62,8 +66,14 @@ window.fbSync = {
       .onSnapshot(function(snap) {
         if (!snap.exists) return;
         var d = snap.data();
-        if (!d || d._dev === window._fbDeviceId) return;
+        if (!d) return;
+        if (d._dev === window._fbDeviceId) return;
         if (d._at <= window.fbLastWrite) return;
+        if (window.fbIsPushing) { 
+          console.log('[FB] Skipping update (we are pushing)');
+          return; 
+        }
+        console.log('[FB] Remote update from', d._dev);
         if (onUpdate) onUpdate(d);
       });
   }
@@ -732,10 +742,16 @@ function App() {
       function handleFbSync(e) {
         var d = e.detail;
         if (!d) return;
-        console.log('[FB] Applying to React state:', Object.keys(d).join(','));
-        if (d.campaigns) setCampaigns(d.campaigns);
-        if (d.allChars) setAllChars(d.allChars);
-        if (d.players) setPlayers(d.players);
+        console.log('[FB] Applying remote state');
+        // Apply all synced data
+        if (d.allChars && Array.isArray(d.allChars)) {
+          setAllChars(function(current) {
+            // Merge: keep local chars not in remote, update those that are
+            return d.allChars;
+          });
+        }
+        if (d.campaigns && Array.isArray(d.campaigns)) setCampaigns(d.campaigns);
+        if (d.players && Array.isArray(d.players)) setPlayers(d.players);
       }
       window.addEventListener('fb-sync', handleFbSync);
       return function() { window.removeEventListener('fb-sync', handleFbSync); };
