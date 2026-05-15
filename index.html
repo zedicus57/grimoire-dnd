@@ -69,6 +69,17 @@ window.fbSync = {
   }
 };
 console.log('[FB] Ready, device:', window._fbDeviceId);
+// Poll every 2s to check if campaign was selected
+setInterval(function() {
+  if (window.fbActiveCampaignId && !window._fbListenerActive) {
+    window._fbListenerActive = true;
+    console.log('[FB] Auto-joining room:', window.fbActiveCampaignId);
+    window.fbSync.joinRoom(window.fbActiveCampaignId, function(d) {
+      console.log('[FB] Remote update received');
+      window._fbRemoteData = d;
+    });
+  }
+}, 1000);
 </script>
 
 <script>
