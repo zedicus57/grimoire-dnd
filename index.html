@@ -48,15 +48,23 @@ window._fbUnsub = null;
 window.fbSync = {
   push: function(data) {
     if (!window.fbActiveCampaignId) return;
-    window.fbLastWrite = Date.now();
-    window.fbIsPushing = true;
-    _db.collection('campaigns').doc(window.fbActiveCampaignId)
-       .collection('sync').doc('state')
-       .set(Object.assign({}, data, {_at: window.fbLastWrite, _dev: window._fbDeviceId}))
-       .then(function() { 
-         setTimeout(function(){ window.fbIsPushing = false; }, 200);
-       })
-       .catch(function(e){ console.warn('[FB]', e); window.fbIsPushing = false; });
+    // Debounce: only write to Firebase max once every 2 seconds
+    if (window._fbDebounceTimer) clearTimeout(window._fbDebounceTimer);
+    window._fbPendingData = data;
+    window._fbDebounceTimer = setTimeout(function() {
+      if (!window._fbPendingData) return;
+      var payload = Object.assign({}, window._fbPendingData, {
+        _at: Date.now(), 
+        _dev: window._fbDeviceId
+      });
+      window.fbLastWrite = payload._at;
+      _db.collection('campaigns').doc(window.fbActiveCampaignId)
+         .collection('sync').doc('state')
+         .set(payload)
+         .then(function() { console.log('[FB] Pushed OK'); })
+         .catch(function(e){ console.warn('[FB] Push error:', e.message); });
+      window._fbPendingData = null;
+    }, 2000);
   },
   joinRoom: function(campId, onUpdate) {
     if (window._fbUnsub) window._fbUnsub();
@@ -756,16 +764,7 @@ function App() {
         writeSave({ campaigns, allChars, players });
     }, [campaigns, allChars, players]);
     // Firebase real-time sync listener
-    useEffect(function() {
-      function handleFbSync(e) {
-        var d = e.detail;
-        if (!d || !d.allChars) return;
-        console.log('[FB] Applying remote allChars');
-        setAllChars(d.allChars.map(function(c) { return Object.assign({}, c); }));
-      }
-      window.addEventListener('fb-sync', handleFbSync);
-      return function() { window.removeEventListener('fb-sync', handleFbSync); };
-    }, []);
+    
     // Re-join Firebase room when campaign changes
     useEffect(function() {
       if (activeCampaign && window.fbJoinAndListen) {
