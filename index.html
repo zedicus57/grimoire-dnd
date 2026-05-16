@@ -717,6 +717,10 @@ function App() {
     const upd = function (d) { if (sheetLocked)
         return; setAllChars(function (cs) { return cs.map(function (c) { return c.id === char.id ? Object.assign({}, c, d) : c; }); }); };
     const PB = pb(char.level);
+    // Sync hpInput when char.hp changes (ex: Firebase remote update)
+    useEffect(function() {
+      setHpInput(String(char.hp));
+    }, [char.hp, char.id]);
     const hp = parseInt(hpInput) || 0;
     const pct = Math.max(0, Math.min(1, hp / char.hpMax));
     const dmg = Math.max(1, parseInt(dmgInput) || 1);
