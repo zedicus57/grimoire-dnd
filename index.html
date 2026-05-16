@@ -668,7 +668,10 @@ function App() {
     const [showDMDash, setShowDMDash] = useState(false);
     const [showCombat, setShowCombat] = useState(false);
     const [showNewHero, setShowNewHero] = useState(false);
-    const [newHeroForm, setNewHeroForm] = useState({ name: "", race: "Humain", class: "Guerrier", portrait: "⚔", level: 1, hp: 10, hpMax: 10, ac: 10, speed: 9 });
+    const [newHeroForm, setNewHeroForm] = useState({ name: "", race: "Humain", class: "Guerrier"
+    const [pinModal, setPinModal] = useState(null); // { char, player }
+    const [pinInput, setPinInput] = useState("");
+    const [pinErr, setPinErr] = useState(false);, portrait: "⚔", level: 1, hp: 10, hpMax: 10, ac: 10, speed: 9 });
     const [sheetLocked, setSheetLocked] = useState(false);
     const [combatNewName, setCombatNewName] = useState("");
     const [combatNewInit, setCombatNewInit] = useState("");
@@ -1041,20 +1044,21 @@ function App() {
                     allChars.map((ch, idx) => {
                         const p = Math.max(0, Math.min(1, ch.hp / ch.hpMax));
                         return (React.createElement("div", { key: ch.id, onClick: () => {
-                            setActiveCharId(ch.id);
-                            setHpInput(String(ch.hp));
-                            setTab("hero");
-                            // Auto-login: find the player linked to this char
                             var linkedPlayer = players.find(function(p) { return p.charId === ch.id; });
-                            if (linkedPlayer) {
-                              setCurrentPlayer(linkedPlayer);
-                              window._fbCurrentPlayerId = linkedPlayer.id;
+                            // If player has a PIN, show PIN modal
+                            if (linkedPlayer && linkedPlayer.pin) {
+                              setPinModal({ ch, player: linkedPlayer });
+                              setPinInput("");
+                              setPinErr(false);
                             } else {
-                              // No player linked - set as DM view
-                              var dm = players.find(function(p) { return p.role === "dm"; });
-                              if (dm) { setCurrentPlayer(dm); window._fbCurrentPlayerId = dm.id; }
+                              // No PIN - go directly
+                              setActiveCharId(ch.id);
+                              setHpInput(String(ch.hp));
+                              setTab("hero");
+                              if (linkedPlayer) { setCurrentPlayer(linkedPlayer); window._fbCurrentPlayerId = linkedPlayer.id; }
+                              else { var dm = players.find(function(p){return p.role==="dm";}); if(dm){setCurrentPlayer(dm);window._fbCurrentPlayerId=dm.id;} }
+                              setScreen("sheet");
                             }
-                            setScreen("sheet");
                           }, style: {
                                 background: "#201f1f", borderRadius: 16, overflow: "hidden",
                                 boxShadow: "0 8px 32px rgba(0,0,0,.5)",
