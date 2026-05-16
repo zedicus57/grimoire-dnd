@@ -694,6 +694,7 @@ function App() {
     const [allChars, setAllChars] = useState(saved && saved.allChars ? saved.allChars : CHARS_ALL);
     const [activeCharId, setActiveCharId] = useState(null);
     const char = allChars.find(function (c) { return c.id === activeCharId; }) || allChars[0];
+    window._fbActiveCharId = char.id;
     const [players, setPlayers] = useState(saved && saved.players ? saved.players : INIT_PLAYERS);
     const [currentPlayer, setCurrentPlayer] = useState(null);
     const isDM = !!(currentPlayer && currentPlayer.role === "dm");
@@ -719,12 +720,19 @@ function App() {
       if (sheetLocked) return;
       setAllChars(function (cs) {
         var updated = cs.map(function (c) { return c.id === char.id ? Object.assign({}, c, d) : c; });
+        console.log('[UPD] campId=', window.fbActiveCampaignId, 'keys=', Object.keys(d));
         if (window.fbSync && window.fbActiveCampaignId) {
           window.fbSync.push({ allChars: updated });
         }
         return updated;
       });
     };
+    // Sync players photos to Firebase when players change
+    useEffect(function() {
+      if (window.fbSync && window.fbActiveCampaignId) {
+        window.fbSync.push({ allChars: allChars, players: players });
+      }
+    }, [players]);
     const PB = pb(char.level);
     // Sync hpInput when char.hp changes (ex: Firebase remote update)
     useEffect(function() {
@@ -794,6 +802,11 @@ function App() {
         console.log('[FB] Applying to React:', Object.keys(d));
         if (d.allChars && Array.isArray(d.allChars)) {
           setAllChars(d.allChars.map(function(c) { return Object.assign({}, c); }));
+          var active = d.allChars.find(function(c) { return c.id === window._fbActiveCharId; }) || d.allChars[0];
+          if (active) setHpInput(String(active.hp));
+        }
+        if (d.players && Array.isArray(d.players)) {
+          setPlayers(d.players);
         }
       }
       window.addEventListener('fb-sync', handleFbSync);
