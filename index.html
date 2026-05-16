@@ -64,7 +64,7 @@ window.fbSync = {
          .then(function() { console.log('[FB] Pushed OK'); })
          .catch(function(e){ console.warn('[FB] Push error:', e.message); });
       window._fbPendingData = null;
-    }, 2000);
+    }, 5000);
   },
   joinRoom: function(campId, onUpdate) {
     if (window._fbUnsub) window._fbUnsub();
@@ -107,7 +107,7 @@ window.fbJoinAndListen = function(campId) {
         window.dispatchEvent(new CustomEvent('fb-sync', { detail: d }));
       })
       .catch(function(e) { console.warn('[FB] Poll error:', e.message); });
-  }, 3000);
+  }, 10000);
 };
 </script>
 
@@ -632,7 +632,7 @@ function App() {
     catch (e) {
         return null;
     } };
-    const writeSave = function(data) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch(e){} if(window.fbSync && window.fbActiveCampaignId && data.allChars) { window.fbSync.push({ allChars: data.allChars }); } };
+    const writeSave = function(data) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(data)); } catch(e){} /* writeSave Firebase disabled - using direct push on HP change only */ };
     const saved = loadSave();
     const INIT_PLAYERS = [
         { id: "dm", name: "Maître du Jeu", role: "dm", avatar: "👑", photo: "", pin: "1234" },
@@ -891,7 +891,7 @@ function App() {
                     players.map(p => {
                         const ch = p.charId ? allChars.find(c => c.id === p.charId) : null;
                         return (React.createElement("button", { key: p.id, onClick: () => { setSel(p); setPin(""); }, style: { display: "flex", alignItems: "center", gap: ".85rem", padding: ".85rem 1rem", background: "rgba(255,255,255,.03)", border: "1px solid #4d4635", borderRadius: 12, cursor: "pointer", width: "100%", textAlign: "left" }, onMouseEnter: e => { e.currentTarget.style.background = "rgba(212,175,55,.06)"; }, onMouseLeave: e => { e.currentTarget.style.background = "rgba(255,255,255,.03)"; } },
-                            React.createElement("div", { style: { width: 48, height: 48, borderRadius: "50%", background: "#2a1f12", border: "2px solid " + (p.role === "dm" ? "#f2ca50" : "#4d4635"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.4rem", flexShrink: 0 } }, p.photo ? React.createElement("img", { src: p.photo, style: { width: "100%", height: "100%", objectFit: "cover" }, alt: "" }) : p.avatar),
+                            React.createElement("div", { style: { width: 48, height: 48, borderRadius: "50%", background: "#2a1f12", border: "2px solid " + (p.role === "dm" ? "#f2ca50" : "#4d4635"), display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1.4rem", flexShrink: 0, overflow: "hidden" } }, p.photo ? React.createElement("img", { src: p.photo, style: { width: "100%", height: "100%", objectFit: "cover" }, alt: "" }) : p.avatar),
                             React.createElement("div", { style: { flex: 1 } },
                                 React.createElement("div", { style: { fontFamily: "'Libre Caslon Text',serif", fontSize: ".95rem", fontWeight: 700, color: p.role === "dm" ? "#f2ca50" : "#e5e2e1" } }, p.name),
                                 React.createElement("div", { style: { fontFamily: "'JetBrains Mono',monospace", fontSize: ".48rem", color: "#99907c", marginTop: 2 } }, p.role === "dm" ? "👑 MAÎTRE DU JEU" : "🎲 JOUEUR" + (ch ? " · " + ch.class : ""))),
@@ -1260,10 +1260,10 @@ function App() {
                                             } }, style: { height: 70, border: "2px dashed #4d4635", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "#4d4635", fontFamily: "'JetBrains Mono',monospace", fontSize: ".5rem", cursor: "text", outline: "none" }, tabIndex: 0, onFocus: function (e) { e.currentTarget.style.borderColor = "#d4af37"; }, onBlur: function (e) { e.currentTarget.style.borderColor = "#4d4635"; } }, "Ctrl+V / Colle une image ici")),
                                     React.createElement("div", null,
                                         React.createElement("div", { style: { fontFamily: "'JetBrains Mono',monospace", fontSize: ".44rem", color: "#99907c", marginBottom: ".3rem" } }, "DEPUIS LE T\u00C9L\u00C9PHONE"),
-                                        React.createElement("label", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem", padding: ".4rem", background: "rgba(255,255,255,.04)", border: "1px solid #4d4635", borderRadius: 6, cursor: "pointer", color: "#99907c", fontFamily: "'JetBrains Mono',monospace", fontSize: ".52rem", fontWeight: 700 } },
-                                            "\uD83D\uDCC1 Choisir un fichier",
-                                            React.createElement("input", { type: "file", accept: "image/*", capture: "environment", style: { display: "none" }, onChange: function (e) { var f = e.target.files[0]; if (!f)
-                                                    return; var r = new FileReader(); r.onload = function (ev) { upd({ portrait: ev.target.result }); setShowPhotoModal(false); }; r.readAsDataURL(f); } }))),
+                                        React.createElement("button", { onClick: function() { document.getElementById('portrait-file-picker').click(); }, style: { display: "flex", alignItems: "center", justifyContent: "center", gap: ".4rem", padding: ".4rem", background: "rgba(255,255,255,.04)", border: "1px solid #4d4635", borderRadius: 6, cursor: "pointer", color: "#99907c", fontFamily: "'JetBrains Mono',monospace", fontSize: ".52rem", fontWeight: 700, width: "100%" } },
+                                            "\uD83D\uDCC1 Choisir un fichier"),
+                                            React.createElement("input", { id: "portrait-file-picker", type: "file", accept: "image/*", style: { display: "none", position: "absolute" }, onChange: function (e) { var f = e.target.files[0]; if (!f)
+                                                    return; var r = new FileReader(); r.onload = function (ev) { upd({ portrait: ev.target.result }); setShowPhotoModal(false); }; r.readAsDataURL(f); } })),
                                     char.portrait && (char.portrait.startsWith("data:") || char.portrait.startsWith("http")) && (React.createElement("button", { onClick: function () { upd({ portrait: "🧙" }); setShowPhotoModal(false); }, style: { padding: ".3rem", background: "rgba(248,113,113,.06)", border: "1px solid rgba(248,113,113,.2)", borderRadius: 6, color: "#f87171", fontFamily: "'JetBrains Mono',monospace", fontSize: ".5rem", fontWeight: 700, cursor: "pointer" } }, "\u2715 Supprimer la photo")),
                                     React.createElement("button", { onClick: function () { setShowPhotoModal(false); }, style: { padding: ".3rem", background: "rgba(255,255,255,.04)", border: "1px solid #4d4635", borderRadius: 6, color: "#99907c", fontFamily: "'JetBrains Mono',monospace", fontSize: ".5rem", fontWeight: 700, cursor: "pointer" } }, "Fermer")))),
                             React.createElement("button", { onClick: function () { setShowCharEdit(true); }, style: { position: "absolute", bottom: -8, right: -8, width: 28, height: 28, borderRadius: "50%", background: "#2a2a2a", border: "1px solid #4d4635", display: "flex", alignItems: "center", justifyContent: "center", fontSize: ".75rem", cursor: "pointer", zIndex: 2 } }, "\u270F\uFE0F")),
@@ -2297,7 +2297,7 @@ function App() {
                                                 ch.name); }))),
                                         React.createElement("label", { style: { display: "flex", alignItems: "center", gap: ".25rem", padding: ".15rem .4rem", borderRadius: 5, background: "rgba(255,255,255,.03)", border: "1px solid #4d4635", cursor: "pointer", color: "#99907c", fontFamily: "'JetBrains Mono',monospace", fontSize: ".44rem", fontWeight: 700, flexShrink: 0 } },
                                             "\uD83D\uDCF7",
-                                            React.createElement("input", { type: "file", accept: "image/*", capture: "environment", style: { display: "none" }, onChange: function (e) { var f = e.target.files[0]; if (!f)
+                                            React.createElement("input", { type: "file", accept: "image/*", style: { display: "none" }, onChange: function (e) { var f = e.target.files[0]; if (!f)
                                                     return; var r = new FileReader(); r.onload = function (ev) { setPlayers(function (ps) { return ps.map(function (pl) { return pl.id === p.id ? Object.assign({}, pl, { photo: ev.target.result }) : pl; }); }); }; r.readAsDataURL(f); } })))),
                                 p.role !== "dm" && (React.createElement("button", { onClick: function () { setPlayers(function (ps) { return ps.filter(function (pl) { return pl.id !== p.id; }); }); }, style: { background: "rgba(150,0,24,.12)", border: "1px solid rgba(248,113,113,.3)", borderRadius: 6, padding: ".3rem .5rem", color: "#f87171", fontFamily: "'JetBrains Mono',monospace", fontSize: ".5rem", fontWeight: 700, cursor: "pointer", flexShrink: 0 } }, "\u2715"))));
                         }),
