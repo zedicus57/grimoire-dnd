@@ -723,24 +723,22 @@ function App() {
     const applyDmg = () => {
         const n = Math.max(0, hp - dmg);
         setHpInput(String(n));
-        upd({ hp: n });
-        // Push HP change immediately to Firebase
-        if (window.fbSync && window.fbActiveCampaignId) {
-          var updatedChars = allChars.map(function(c) { return c.id === char.id ? Object.assign({}, c, {hp: n}) : c; });
-          window.fbSync.push({ allChars: updatedChars });
-        }
+        setAllChars(function(cs) {
+          var updated = cs.map(function(c) { return c.id === char.id ? Object.assign({}, c, {hp: n}) : c; });
+          if (window.fbSync && window.fbActiveCampaignId) { window.fbSync.push({ allChars: updated }); }
+          return updated;
+        });
     };
     const applyHeal = () => {
         const n = Math.min(char.hpMax, hp + dmg);
         setHpInput(String(n));
-        upd({ hp: n });
-        // Push HP change immediately to Firebase
-        if (window.fbSync && window.fbActiveCampaignId) {
-          var updatedChars = allChars.map(function(c) { return c.id === char.id ? Object.assign({}, c, {hp: n}) : c; });
-          window.fbSync.push({ allChars: updatedChars });
-        }
+        setAllChars(function(cs) {
+          var updated = cs.map(function(c) { return c.id === char.id ? Object.assign({}, c, {hp: n}) : c; });
+          if (window.fbSync && window.fbActiveCampaignId) { window.fbSync.push({ allChars: updated }); }
+          return updated;
+        });
     };
-    const availableSpells = SPELLS_DB.filter(s => !char.spells.find(cs => cs.id === s.id));
+        const availableSpells = SPELLS_DB.filter(s => !char.spells.find(cs => cs.id === s.id));
     const filteredSpells = availableSpells.filter(s => {
         if (spLvl !== "Tous" && s.level !== spLvl)
             return false;
@@ -781,9 +779,9 @@ function App() {
         var d = e.detail;
         if (!d) return;
         console.log('[FB] Applying to React:', Object.keys(d));
-        if (d.campaigns) setCampaigns(d.campaigns);
-        if (d.allChars) setAllChars(d.allChars);
-        if (d.players) setPlayers(d.players);
+        if (d.allChars && Array.isArray(d.allChars)) {
+          setAllChars(d.allChars.map(function(c) { return Object.assign({}, c); }));
+        }
       }
       window.addEventListener('fb-sync', handleFbSync);
       return function() { window.removeEventListener('fb-sync', handleFbSync); };
